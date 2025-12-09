@@ -1,7 +1,7 @@
 {
-  "name": "aios-fullstack",
+  "name": "@aios/core",
   "version": "2.1.0",
-  "description": "AIOS-FULLSTACK: AI-Orchestrated System for Full Stack Development - Modern cross-platform CLI with interactive wizard",
+  "description": "AIOS: AI-Orchestrated System for Full Stack Development - Core Framework",
   "main": "index.js",
   "module": "index.esm.js",
   "types": "index.d.ts",
@@ -117,12 +117,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Pedrovaleriolopez/aios-fullstack.git"
+    "url": "git+https://github.com/allfluence/aios-core.git"
   },
   "bugs": {
-    "url": "https://github.com/Pedrovaleriolopez/aios-fullstack/issues"
+    "url": "https://github.com/allfluence/aios-core/issues"
   },
-  "homepage": "https://github.com/Pedrovaleriolopez/aios-fullstack#readme",
+  "homepage": "https://github.com/allfluence/aios-core#readme",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
