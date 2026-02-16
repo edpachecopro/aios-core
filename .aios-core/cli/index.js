@@ -13,25 +13,39 @@ const { Command } = require('commander');
 const path = require('path');
 const fs = require('fs');
 
-// Import command modules
-const { createWorkersCommand } = require('./commands/workers');
-const { createManifestCommand } = require('./commands/manifest');
-const { createQaCommand } = require('./commands/qa');
-const { createMcpCommand } = require('./commands/mcp');
-const { createMigrateCommand } = require('./commands/migrate');
-const { createGenerateCommand } = require('./commands/generate');
-const { createMetricsCommand } = require('./commands/metrics');
-const { createConfigCommand } = require('./commands/config');
-const { createProCommand } = require('./commands/pro');
-
 // Read package.json for version
-const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+const packageJsonPath = path.join(__dirname, '..', 'package.json');
 let packageVersion = '0.0.0';
 try {
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
   packageVersion = packageJson.version;
 } catch (error) {
   // Fallback version if package.json not found
+}
+
+/**
+ * Safely load a command module. Returns null if the module fails to load
+ * (e.g., missing transitive dependencies in partial installations).
+ */
+function safeRequire(modulePath, commandName) {
+  try {
+    return require(modulePath);
+  } catch (error) {
+    if (process.env.AIOS_DEBUG) {
+      console.error(`Warning: Failed to load "${commandName}" command: ${error.message}`);
+    }
+    return null;
+  }
+}
+
+/**
+ * Safely add a command to the program.
+ */
+function safeAddCommand(program, modulePath, commandName, factoryName) {
+  const mod = safeRequire(modulePath, commandName);
+  if (mod && typeof mod[factoryName] === 'function') {
+    program.addCommand(mod[factoryName]());
+  }
 }
 
 /**
@@ -42,11 +56,14 @@ function createProgram() {
   const program = new Command();
 
   program
-    .name('aios')
+    .name('aios-core')
     .version(packageVersion)
     .description('AIOS-FullStack: AI-Orchestrated System for Full Stack Development')
     .addHelpText('after', `
 Commands:
+  install           Install AIOS framework into current project
+  update            Update existing AIOS installation
+  sync              Sync .claude/ to .aios-core/claude-config/ (dev only)
   workers           Manage and discover workers
   manifest          Manage manifest files (validate, regenerate)
   qa                Quality Gate Manager (run, status)
@@ -56,73 +73,37 @@ Commands:
   mcp               Manage global MCP configuration
   migrate           Migrate from v2.0 to v4.0.4 structure
   generate          Generate documents from templates (prd, adr, pmdr, etc.)
-  install           Install AIOS in current project
-  init <name>       Create new AIOS project
   info              Show system information
   doctor            Run system diagnostics
 
 For command help:
-  $ aios <command> --help
+  $ aios-core <command> --help
 
 Examples:
-  $ aios workers search "json transformation"
-  $ aios workers list --category=data
-  $ aios manifest validate
-  $ aios manifest regenerate
-  $ aios qa run
-  $ aios qa status
-  $ aios mcp setup --with-defaults
-  $ aios mcp link
-  $ aios mcp status
-  $ aios metrics show
-  $ aios metrics record --layer 1 --passed
-  $ aios metrics seed --days 30
-  $ aios migrate --dry-run
-  $ aios migrate --from=2.0 --to=2.1
-  $ aios generate pmdr --title "Feature X Decision"
-  $ aios generate adr --save
-  $ aios generate list
-  $ aios config show
-  $ aios config show --debug
-  $ aios config diff --levels L1,L2
-  $ aios config migrate --dry-run
-  $ aios config validate
-  $ aios config init-local
-  $ aios pro activate --key PRO-XXXX-XXXX-XXXX-XXXX
-  $ aios pro status
-  $ aios pro deactivate
-  $ aios pro features
-  $ aios pro validate
-  $ aios install
-  $ aios doctor
+  $ aios-core install
+  $ aios-core install --force
+  $ aios-core update
+  $ aios-core sync
+  $ aios-core workers search "json transformation"
+  $ aios-core config show
+  $ aios-core doctor
 `);
 
-  // Add workers command
-  program.addCommand(createWorkersCommand());
+  // Core commands (install/update/sync) — always available
+  safeAddCommand(program, './commands/install', 'install', 'createInstallCommand');
+  safeAddCommand(program, './commands/update', 'update', 'createUpdateCommand');
+  safeAddCommand(program, './commands/sync', 'sync', 'createSyncCommand');
 
-  // Add manifest command (Story 2.13)
-  program.addCommand(createManifestCommand());
-
-  // Add qa command (Story 2.10)
-  program.addCommand(createQaCommand());
-
-  // Add mcp command (Story 2.11)
-  program.addCommand(createMcpCommand());
-
-  // Add migrate command (Story 2.14)
-  program.addCommand(createMigrateCommand());
-
-  // Add generate command (Story 3.9)
-  program.addCommand(createGenerateCommand());
-
-  // Add metrics command (Story 3.11a)
-  program.addCommand(createMetricsCommand());
-
-  // Add config command (Story PRO-4)
-  program.addCommand(createConfigCommand());
-
-  // Add pro command (Story PRO-6)
-  program.addCommand(createProCommand());
+  // Framework commands — gracefully degrade if dependencies missing
+  safeAddCommand(program, './commands/workers', 'workers', 'createWorkersCommand');
+  safeAddCommand(program, './commands/manifest', 'manifest', 'createManifestCommand');
+  safeAddCommand(program, './commands/qa', 'qa', 'createQaCommand');
+  safeAddCommand(program, './commands/mcp', 'mcp', 'createMcpCommand');
+  safeAddCommand(program, './commands/migrate', 'migrate', 'createMigrateCommand');
+  safeAddCommand(program, './commands/generate', 'generate', 'createGenerateCommand');
+  safeAddCommand(program, './commands/metrics', 'metrics', 'createMetricsCommand');
+  safeAddCommand(program, './commands/config', 'config', 'createConfigCommand');
+  safeAddCommand(program, './commands/pro', 'pro', 'createProCommand');
 
   return program;
 }
